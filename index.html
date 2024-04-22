@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Interactive Heatmap Data Visualization</title>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        
+        #heatmap-container {
+            width: 90%;
+            max-width: 1200px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        #heatmap {
+            width: 100%;
+            height: 60vh;
+        }
+        
+        .controls-wrapper {
+            padding: 20px;
+            background-color: #f9f9f9;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        
+        .control-label {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .control-slider {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .control-value {
+            font-size: 12px;
+            color: #777;
+        }
+    </style>
+    
+    
+</head>
+
+<body>
+    <svg id="heatmap" viewBox="0 0 512 512"></svg>
+
+    <div class="controls-wrapper">
+        <div class="control-group">
+            <label class="control-label" for="thresholdSlider">Threshold:</label>
+            <div class="control-container">
+                <input type="range" min="0" max="1000" value="1000" class="control-slider" id="thresholdSlider" step="10" oninput="adjustThreshold(this.value)" />
+                <span id="thresholdDisplay" class="control-value">1000</span>
+            </div>
+        </div>
+    
+        <div class="control-group">
+            <label class="control-label" for="densitySlider">Density :</label>
+            <div class="control-container">
+                <input type="range" min="0" max="1500" value="1500" class="control-slider" id="densitySlider" step="10" oninput="adjustDensity(this.value)" />
+                <span id="densityDisplay" class="control-value">1500</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const dataLocation = 'Data_CT.csv'; 
+        let drawingArea = d3.select("#heatmap");
+        let densityValue = 1500; 
+
+        const drawPath = d3.geoPath();
+
+        function renderMap(location, thresholdVal, densityVal) {
+            d3.csv(location).then((dataEntries) => {
+                if (dataEntries) {
+                    console.log("Data loaded:", dataEntries);
+
+                    const rowCount = 512, colCount = 512;
+
+                    let dataList = [];
+                    dataEntries.forEach((entry) => {
+                        dataList.push(+entry[0]);
+                    });
+
+                    const minVal = d3.min(dataList);
+                    const maxVal = d3.max(dataList);
+
+                    let colorRange = d3.scaleLinear()
+                        .domain(d3.range(minVal, maxVal + 1, parseInt((maxVal - minVal) / 7)))
+                        .range(["#0d1a50", "#3e5eba", "#2b83ba", "#abdda4", "#ffffbf", "#fdae61", "#d7191c"])
+                        .interpolate(d3.interpolateHcl);
+
+                    let mapData = d3.contours()
+                        .size([rowCount, colCount])
+                        .thresholds(d3.range(minVal, maxVal, thresholdVal))
+                        (dataList);
+
+                    drawingArea.selectAll(".heatmap-layer").remove();
+
+                    drawingArea.append("g").attr("class", "heatmap-layer")
+                        .selectAll("path")
+                        .data(mapData)
+                        .enter()
+                        .append("path")
+                        .attr("d", drawPath)
+                        .attr("stroke", "black")
+                        .attr("stroke-width", ".1px")
+                        .attr("stroke-linejoin", "round")
+                        .attr("fill", (data) => colorRange(data.value));
+
+                    densityValue = densityVal;
+                    adjustDensity(densityValue);
+                } else {
+                    console.error("Error in loading data from:", location);
+                }
+            }).catch((error) => {
+                console.error("Error:", error);
+            });
+        }
+
+        function adjustThreshold(value) {
+            document.getElementById('thresholdDisplay').innerText = value;
+            renderMap(dataLocation, value, densityValue);
+        }
+
+        function adjustDensity(value) {
+            document.getElementById('densityDisplay').innerText = value;
+            console.log("Density:", value);
+        }
+
+        renderMap(dataLocation, 100, 1500);
+    </script>
+</body>
+
+</html>
